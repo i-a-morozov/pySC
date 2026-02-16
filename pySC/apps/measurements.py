@@ -38,7 +38,7 @@ def orbit_correction(interface: AbstractInterface, response_matrix: ResponseMatr
 
     if apply:
         data = interface.get_many(correctors)
-        for corr in correctors:
+        for corr in trims.keys():
             data[corr] += trims[corr] * gain
         interface.set_many(data)
         if rf and trims['rf'] != 0:
