@@ -13,6 +13,14 @@ class TestBBACode:
         assert BBACode.VERTICAL == 5
         assert BBACode.VERTICAL_DONE == 6
         assert BBACode.DONE == 7
+        assert BBACode.HORIZONTAL_IOS_READY == 8
+        assert BBACode.VERTICAL_IOS_READY == 9
+
+    def test_bba_ios_ready_codes_are_distinct_members(self):
+        assert BBACode(8).name == 'HORIZONTAL_IOS_READY'
+        assert BBACode(9).name == 'VERTICAL_IOS_READY'
+        assert BBACode.HORIZONTAL_IOS_READY != BBACode.DONE
+        assert BBACode.VERTICAL_IOS_READY != BBACode.DONE
 
 
 class TestResponseCode:
