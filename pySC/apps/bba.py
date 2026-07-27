@@ -301,7 +301,31 @@ class BBA_Measurement(BaseModel, extra="forbid"):
     #     for code in generator:
     #         logger.debug(f'    Got code: {code}')
 
-def prep_ios(data: BBAData, n_downstream: Optional[int] = None):
+def prep_ios(data: BBAData, n_downstream: Optional[int] = None) -> tuple[np.ndarray, np.ndarray]:
+    ( bpm_number, bpm_position, induced_orbit_shift, start, k1_arr, all_x, all_y,
+    ) = _prepare_data_for_ios_calculation(data=data, n_downstream=n_downstream)
+
+    for ii in range(data.n0):
+        bpm_position[ii], induced_orbit_shift[ii] = calc_ios(
+            ii=ii, magnet_type=data.magnet_type, delta=data.dk1l, k1_arr=k1_arr, plane=data.plane,
+            bpm_number=bpm_number, start=start, all_x=all_x, all_y=all_y
+        )
+
+    return bpm_position, induced_orbit_shift
+
+def get_one_ios(data: BBAData, ii: int, n_downstream: Optional[int] = None) -> tuple[float, np.ndarray]:
+    ( bpm_number,_, _, start, k1_arr, all_x, all_y,
+    ) = _prepare_data_for_ios_calculation(data=data, n_downstream=n_downstream)
+
+    one_bpm_position, one_induced_orbit_shift = calc_ios(
+        ii=ii, magnet_type=data.magnet_type, delta=data.dk1l, k1_arr=k1_arr, plane=data.plane,
+        bpm_number=bpm_number, start=start, all_x=all_x, all_y=all_y
+    )
+    return one_bpm_position, one_induced_orbit_shift
+
+def _prepare_data_for_ios_calculation(data: BBAData, n_downstream: Optional[int] = None,
+                                      ) -> tuple[int, np.ndarray, np.ndarray, int,
+                                                 list[float], np.ndarray, np.ndarray]:
     bpm_number = data.bpm_number
     bpm_position = np.full((data.n0), np.nan)
 
@@ -330,23 +354,27 @@ def prep_ios(data: BBAData, n_downstream: Optional[int] = None):
         all_x = np.array([x_center[:,start:end], x_up[:, start:end]])
         all_y = np.array([y_center[:,start:end], y_up[:, start:end]])
 
-    for ii in range(data.n0):
-        if data.plane == 'H':
-            bpm_position[ii] = np.mean(all_x[:, ii, bpm_number - start])
-            if data.magnet_type in [MagnetType.skew_quad]:
-                induced_orbit_shift[ii] = np.polyfit(k1_arr, all_y[:,ii], 1)[0] * data.dk1l
-            elif data.magnet_type in [MagnetType.norm_quad, MagnetType.norm_sext]:
-                induced_orbit_shift[ii] = np.polyfit(k1_arr, all_x[:,ii], 1)[0] * data.dk1l
-            else:
-                raise Exception(f"Unknown magnet type {data.magnet_type}.")
+    return bpm_number, bpm_position, induced_orbit_shift, start, k1_arr, all_x, all_y
+
+def calc_ios(ii: int, magnet_type: MagnetType, delta: float, k1_arr: list[float],
+             plane: Literal["H", "V"], bpm_number: int, start: int,
+             all_x: np.ndarray, all_y: np.ndarray) -> tuple[float, np.ndarray]:
+    if plane == 'H':
+        bpm_position = np.mean(all_x[:, ii, bpm_number - start])
+        if magnet_type in [MagnetType.skew_quad]:
+            induced_orbit_shift = np.polyfit(k1_arr, all_y[:,ii], 1)[0] * delta
+        elif magnet_type in [MagnetType.norm_quad, MagnetType.norm_sext]:
+            induced_orbit_shift = np.polyfit(k1_arr, all_x[:,ii], 1)[0] * delta
         else:
-            bpm_position[ii] = np.mean(all_y[:, ii, bpm_number - start])
-            if data.magnet_type in [MagnetType.skew_quad, MagnetType.norm_sext]:
-                induced_orbit_shift[ii] = np.polyfit(k1_arr, all_x[:,ii], 1)[0] * data.dk1l
-            elif data.magnet_type in [MagnetType.norm_quad]:
-                induced_orbit_shift[ii] = np.polyfit(k1_arr, all_y[:,ii], 1)[0] * data.dk1l
-            else:
-                raise Exception(f"Unknown magnet type {data.magnet_type}.")
+            raise Exception(f"Unknown magnet type {magnet_type}.")
+    else:
+        bpm_position = np.mean(all_y[:, ii, bpm_number - start])
+        if magnet_type in [MagnetType.skew_quad, MagnetType.norm_sext]:
+            induced_orbit_shift = np.polyfit(k1_arr, all_x[:,ii], 1)[0] * delta
+        elif magnet_type in [MagnetType.norm_quad]:
+            induced_orbit_shift = np.polyfit(k1_arr, all_y[:,ii], 1)[0] * delta
+        else:
+            raise Exception(f"Unknown magnet type {magnet_type}.")
     return bpm_position, induced_orbit_shift
 
 def reject_bpm_outlier(induced_orbit_shift: np.ndarray, bpm_outlier_sigma: float) -> np.ndarray[bool]:

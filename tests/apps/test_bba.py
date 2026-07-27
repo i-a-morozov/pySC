@@ -8,6 +8,7 @@ from pySC.apps.bba import (
     BBA_Measurement,
     BBAAnalysis,
     hysteresis_loop,
+    get_one_ios,
     prep_ios,
     reject_bpm_outlier,
     reject_slopes,
@@ -176,6 +177,24 @@ class TestPrepIos:
         assert ios_bi.shape == ios_uni.shape
         assert np.all(np.isfinite(ios_bi))
         assert np.all(np.isfinite(ios_uni))
+
+    @pytest.mark.parametrize("bipolar", [True, False])
+    @pytest.mark.parametrize("n_downstream", [None, 4])
+    def test_get_one_ios_matches_prep_ios(self, bipolar, n_downstream):
+        """Single-step IOS calculation matches the corresponding prep_ios row."""
+        data = _make_bba_data(n0=5, n_bpms=10, bpm_number=3, bipolar=bipolar)
+
+        bpm_position, induced_orbit_shift = prep_ios(data, n_downstream=n_downstream)
+
+        for ii in range(data.n0):
+            one_bpm_position, one_induced_orbit_shift = get_one_ios(
+                data,
+                ii=ii,
+                n_downstream=n_downstream,
+            )
+
+            assert one_bpm_position == pytest.approx(bpm_position[ii])
+            np.testing.assert_allclose(one_induced_orbit_shift, induced_orbit_shift[ii])
 
 
 class TestRejectBpmOutlier:
