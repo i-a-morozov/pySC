@@ -64,7 +64,7 @@ def orbit_correction(interface: AbstractInterface, response_matrix: ResponseMatr
 def measure_bba(interface: AbstractInterface, bpm_name, config: dict, shots_per_orbit: int = 1,
                 n_corr_steps: int = 7, bipolar: bool = True, skip_save: bool = False,
                 folder_to_save: Optional[Path] = None, plane: Optional[str] = None,
-                skip_cycle: bool = False) -> Generator:
+                skip_cycle: bool = False, live_ios: bool = False) -> Generator:
 
     if folder_to_save is None:
         folder_to_save = Path('data')
@@ -95,7 +95,8 @@ def measure_bba(interface: AbstractInterface, bpm_name, config: dict, shots_per_
                                   n0=n_corr_steps,
                                   bpm_number=config['number'],
                                   shots_per_orbit=shots_per_orbit,
-                                  bipolar=bipolar
+                                  bipolar=bipolar,
+                                  live_ios=live_ios,
                                  )
 
     generator = measurement.generate(interface=interface, plane=plane)

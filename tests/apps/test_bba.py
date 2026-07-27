@@ -426,6 +426,24 @@ class TestBBAMeasurement:
         assert BBACode.HORIZONTAL in codes
         assert codes[-1] == BBACode.DONE
 
+    def test_bba_measurement_live_ios_yields_ready_codes(self, mock_interface):
+        """live_ios=True yields one IOS-ready code per measured point."""
+        iface = mock_interface(n_bpms=10)
+        meas = self._make_measurement()
+        meas.live_ios = True
+
+        ready_codes = []
+        for code in meas.generate(iface, plane='H', skip_cycle=True):
+            if code == BBACode.HORIZONTAL_IOS_READY:
+                ready_codes.append(code)
+                assert iface.get(meas.quadrupole) == pytest.approx(meas.initial_k1l)
+                assert np.isfinite(meas.last_bpm_pos)
+                assert meas.last_ios.shape == (10,)
+                assert np.all(np.isfinite(meas.last_ios))
+
+        assert len(ready_codes) == meas.n0
+        assert code == BBACode.DONE
+
     def test_quad_is_skew_deprecated_argument_sets_magnet_type(self):
         """Deprecated quad_is_skew input remains backward compatible."""
         meas = BBA_Measurement(

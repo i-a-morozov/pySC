@@ -112,6 +112,7 @@ class BBA_Measurement(BaseModel, extra="forbid"):
     magnet_type: BBA_MagnetType = MagnetType.norm_quad
     quad_is_skew: bool = False
     plane: str = None
+    live_ios: bool = False
 
     initial_h_k0l: Optional[float] = None
     initial_v_k0l: Optional[float] = None
@@ -120,7 +121,12 @@ class BBA_Measurement(BaseModel, extra="forbid"):
     H_data: Optional[BBAData] = None
     V_data: Optional[BBAData] = None
 
+    last_ios: NPARRAY = np.array([])
+    last_bpm_pos: float = 0
+
     _interface: Optional[AbstractInterface] = PrivateAttr(default=None) # to be set at generation of measurement
+
+    model_config = ConfigDict(arbitrary_types_allowed=True, extra="forbid")
 
     @model_validator(mode='before')
     def check_deprecations(cls, data):
@@ -174,10 +180,12 @@ class BBA_Measurement(BaseModel, extra="forbid"):
         if plane == 'H':
             logger.debug('Starting measurement in horizontal plane.')
             code = BBACode.HORIZONTAL
+            ios_ready_code = BBACode.HORIZONTAL_IOS_READY
             code_done = BBACode.HORIZONTAL_DONE
         else:
             logger.debug('Starting measurement in vertical plane.')
             code = BBACode.VERTICAL
+            ios_ready_code = BBACode.VERTICAL_IOS_READY
             code_done = BBACode.VERTICAL_DONE
 
         corrector = self.h_corrector if plane == 'H' else self.v_corrector
@@ -243,6 +251,12 @@ class BBA_Measurement(BaseModel, extra="forbid"):
             # restore quadrupole to initial setpoint
             logger.debug(f'    Restoring quadrupole to initial setpoint: {self.initial_k1l}')
             interface.set(self.quadrupole, self.initial_k1l)
+
+            if self.live_ios:
+                # TODO decide how to use n_downstream after writing an actual application for trajectory-based BBA.
+                self.last_bpm_pos, self.last_ios = get_one_ios(data=data, ii=ii, n_downstream=None)
+                logger.debug(f"    Position at BPM = {1e6*self.last_bpm_pos:.3f} μm, std(I.O.S.) = {1e6*np.std(self.last_ios):.3f} μm")
+                yield ios_ready_code
 
             logger.debug("")
         # restore corrector to initial setpoint
