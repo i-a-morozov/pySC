@@ -13,6 +13,8 @@ class BBACode(IntEnum):
     VERTICAL = 5
     VERTICAL_DONE = 6
     DONE = 7
+    HORIZONTAL_IOS_READY = 8
+    VERTICAL_IOS_READY = 9
 
 class ResponseCode(IntEnum):
     INITIALIZED = MeasurementCode.INITIALIZED.value
